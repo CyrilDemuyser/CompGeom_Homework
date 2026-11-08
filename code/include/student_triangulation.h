@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+#define VERTEX_INFINITY UINT32_MAX
+
 // =========================== Structures ============================
 
 // Minimal boundary structure 
@@ -31,7 +33,7 @@ typedef struct {
 
     // Half-edges
     // elems[he] is the origin vertex; next is computed, not stored.
-    uint32_t * twin;   // half-edge opposite of current
+    int * twin;   // half-edge opposite of current
 
     uint32_t * startHE; // half-edge leaving vertex (!takes a vertex index, returns a half-edge index)
 } mesh_st;

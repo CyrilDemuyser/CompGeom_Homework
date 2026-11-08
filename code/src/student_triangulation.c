@@ -1,10 +1,14 @@
 #include "student_triangulation.h"
 #include <stdlib.h>
 
+
 // Documentation can be found in student_triangulation.h
 
 void mesh_triangulate(mesh_st * mesh) {
     // Reuse existing memory if it exists, otherwise allocate and compute
+    mesh_allocate_triangles(mesh, mesh->nnodes * 3);
+    // Create initial triangles
+    create_initial_triangle(mesh);
 }
 
 boundary_st mesh_get_boundary(mesh_st const * mesh) {

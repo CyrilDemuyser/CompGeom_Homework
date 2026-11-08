@@ -6,7 +6,7 @@ C_DEFINES = -Dgeonum_EXPORTS
 
 C_INCLUDES = @CMakeFiles/geonum.dir/includes_C.rsp
 
-C_FLAGS = -O2 -g -DNDEBUG -std=gnu11 -Wall -Wextra -pedantic -Wshadow
+C_FLAGS = -g -std=gnu11 -Wall -Wextra -pedantic -Wshadow
 
 # Custom options: CMakeFiles/geonum.dir/src/predicates.c.obj_OPTIONS = -O2;-fno-fast-math;-ffp-contract=off
 
