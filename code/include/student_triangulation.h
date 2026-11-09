@@ -32,7 +32,7 @@ typedef struct {
     uint32_t nelems;     // number of elems
 
     // Half-edges
-    // elems[he] is the origin vertex; next is computed, not stored.
+    // elems[he] is the origin vertex; next is computed : 3*(he/3)+ (he+1)%3
     int * twin;   // half-edge opposite of current
 
     uint32_t * startHE; // half-edge leaving vertex (!takes a vertex index, returns a half-edge index)
