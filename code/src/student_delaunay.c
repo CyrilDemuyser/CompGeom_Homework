@@ -75,6 +75,7 @@ void create_initial_triangle(mesh_st* mesh) {
 
 }
 
+// Task 1.4
 uint32_t stochastic_visibility_walk(mesh_st* mesh, double* point, uint32_t previous_elem) {
     uint32_t T = previous_elem;
     int failsafe_counter = 0; // To prevent infinite loops
@@ -123,8 +124,10 @@ uint32_t stochastic_visibility_walk(mesh_st* mesh, double* point, uint32_t previ
     }
 }
 
+// Task 1.5
 void grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint8_t* cavity, uint32_t* boundary_edges) {
-    uint8_t* in_cavity = calloc(mesh->nelems, sizeof(*in_cavity));
+    // BFS = Breadth-First Search
+    uint8_t* in_cavity = calloc(mesh->nelems, sizeof(*in_cavity)); // c et pas m pour avoir des 0s
 
 
     uint32_t head = 0;  // Prochain triangle à traiter
