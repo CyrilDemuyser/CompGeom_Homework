@@ -59,6 +59,7 @@ void sort_points_by_hilbert(uint32_t* points_order, uint32_t npoints, const uint
 
 }
 
+
 void compute_hilbert_keys(double* points, uint32_t npoints, uint64_t* hilbert_keys, uint32_t depth){
     if (npoints == 0) {
         return;
@@ -93,6 +94,8 @@ void compute_hilbert_keys(double* points, uint32_t npoints, uint64_t* hilbert_ke
         hilbert_keys[i] = key;
     }
 }
+
+// functions from the ZouL
 
 static void swap(double *a, double *b) {
   double temp = *a;
