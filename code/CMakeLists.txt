@@ -90,6 +90,8 @@ set(DEFAULT_PROJECT_FILES
 )
 
 add_library(geonum SHARED)
+find_package(OpenMP REQUIRED COMPONENTS C)
+target_link_libraries(geonum PRIVATE OpenMP::OpenMP_C)
 target_sources(geonum PRIVATE ${STUDENT_PROJECT_FILES} ${DEFAULT_PROJECT_FILES})
 target_include_directories(geonum PUBLIC ${STUDENT_INCLUDE_DIRS})  # Give access to the 'include/*.h' files
 

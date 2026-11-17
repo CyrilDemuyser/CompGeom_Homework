@@ -1,6 +1,10 @@
 // sections 1.2 and 1.4-1.6
 #include "student_delaunay.h"
-
+#include <stdlib.h>
+#include <stdio.h>
+#include "predicates.h"
+#include "student_mesh.h"
+#include "He_st.h"
 
 void create_initial_triangle(mesh_st* mesh) {
     // Check if at least 3 points in nodes
@@ -151,7 +155,7 @@ void grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint8_t* cavity,
             N_points[0] = mesh->nodes[2 * mesh->elems[3 * N + 0]];
             N_points[1] = mesh->nodes[2 * mesh->elems[3 * N + 1]];
             N_points[2] = mesh->nodes[2 * mesh->elems[3 * N + 2]];
-            if (in_cavity[N] != 1 && incircle(N_points[0], N_points[1], N_points[2], point) > 0){
+            if (in_cavity[N] != 1 && incircle(&N_points[0], &N_points[1], &N_points[2], &point[0]) > 0){
                 in_cavity[N] = 1;
                 cavity[count++] = N;
             }

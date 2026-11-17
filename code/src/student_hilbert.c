@@ -1,7 +1,9 @@
 // Hilbert section 1.3.
 #include "student_hilbert.h"
 #include <math.h>
+#include <stdint.h>
 #include "HXTSort.h"
+
 
 // We are using HXTSort -> docs on its repo page : https://git.immc.ucl.ac.be/hextreme/HXTSort/-/blob/master/doc/doc.pdf?ref_type=heads
 // It's all in the header file
@@ -44,7 +46,7 @@ static uint64_t get_point_key(uint32_t* point_id_ptr, const void* user_data){
 
 void sort_points_by_hilbert(uint32_t* points_order, uint32_t npoints, const uint64_t* hilbert_keys){
     if (npoints == 0) {
-        return 0; // No points to sort
+        return;
     }
 
     uint64_t max_key = 0;

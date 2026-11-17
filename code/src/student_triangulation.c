@@ -1,6 +1,10 @@
 #include "student_triangulation.h"
 #include <stdlib.h>
-
+#include "student_delaunay.h"
+#include "student_hilbert.h"
+#include "student_mesh.h"
+#include "student_refinement.h"
+#include "predicates.h"
 
 // Documentation can be found in student_triangulation.h
 

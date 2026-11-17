@@ -1,5 +1,6 @@
 // Mesh storage and connectivity kind of like triangulation and refinement but maybe more about the data structure than the algorithm.
 #include "student_mesh.h"
+#include <stdlib.h>
 
 int mesh_allocate_triangles(mesh_st* mesh, uint32_t min_nelems){
     if (mesh->elems == NULL){
@@ -8,6 +9,7 @@ int mesh_allocate_triangles(mesh_st* mesh, uint32_t min_nelems){
             return -1; // Allocation failed
         }
     }
+    return 1; // Allocation successful
 }
 
 int is_ghost_triangle(mesh_st* mesh, uint32_t elem_index) {

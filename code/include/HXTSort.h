@@ -707,7 +707,11 @@ static inline int omp_get_max_threads(void) {return 1; }
  *************************************************************************************/
 
 /* stuff to have an aligned malloc*/
-#if (defined(__STD_VERSION__ ) && (__STD_VERSION__ >= 200112L )) \
+#if defined(_WIN32)
+#include <malloc.h>
+#define HXTSORT_MEMALIGN(size) _aligned_malloc(size, 64)
+#define HXTSORT_FREE(ptr)      _aligned_free(ptr)
+#elif (defined(__STD_VERSION__ ) && (__STD_VERSION__ >= 200112L )) \
  || (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 200112L)) \
  || (defined(_ISOC11_SOURCE) )
 #define HXTSORT_MEMALIGN(size) aligned_alloc(64, size)
@@ -719,10 +723,6 @@ static inline void* HXTSORT_MEMALIGN(size_t size){
   return ptr;
 } 
 #define HXTSORT_FREE(ptr)      free(ptr)
-#elif defined (_MSC_VER)
-#include <malloc.h>
-#define HXTSORT_MEMALIGN(size) _aligned_malloc (size, 64)
-#define HXTSORT_FREE(ptr)      _aligned_free(ptr)
 #elif defined __INTEL_COMPILER
 #define HXTSORT_MEMALIGN(size) _mm_malloc(size, 64)
 #define HXTSORT_FREE(ptr)      _mm_free(ptr)
