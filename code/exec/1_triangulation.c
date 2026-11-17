@@ -263,6 +263,7 @@ int main(int argc, char** argv) {
 
     struct timespec t0, t1;
     timespec_get(&t0, TIME_UTC);
+    printf("Starting triangulation...\n");
     mesh_triangulate(&mesh);
     timespec_get(&t1, TIME_UTC);
     double const t = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec)*1e-9;

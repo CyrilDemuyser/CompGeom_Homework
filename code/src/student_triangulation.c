@@ -1,5 +1,6 @@
 #include "student_triangulation.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include "student_delaunay.h"
 #include "student_hilbert.h"
 #include "student_mesh.h"
@@ -10,16 +11,73 @@
 
 void mesh_triangulate(mesh_st * mesh) {
     // Reuse existing memory if it exists, otherwise allocate and compute
-    mesh_allocate_triangles(mesh, mesh->nnodes * 3);
+    printf("Starting triangulation for %u nodes.\n", mesh->nnodes);
+    
+    uint32_t triangle_capacity = 2 * mesh->nnodes - 2;
+    uint32_t half_edge_capacity = 3 * triangle_capacity;
+    
+    if (mesh_allocate_triangles(mesh, half_edge_capacity) < 0 || mesh_allocate_twins(mesh, half_edge_capacity) < 0) {
+        fprintf(stderr, "Allocation du maillage impossible.\n");
+        return;
+    }
+    mesh->elems_capacity = triangle_capacity;
+    mesh->startHE = malloc((size_t)mesh->nnodes * sizeof(*mesh->startHE));
+    if (mesh->startHE == NULL) {
+        fprintf(stderr, "Allocation de startHE impossible.\n");
+        return;
+    }
+
+    for (uint32_t v = 0; v < mesh->nnodes; ++v)
+        mesh->startHE[v] = UINT32_MAX;  // Aucune demi-arête associée pour l'instant
     // Create initial triangles
-    create_initial_triangle(mesh);
+    uint32_t* initial_vertices = malloc(3 * sizeof(uint32_t));
+    create_initial_triangle(mesh, initial_vertices);
+    printf("Initial triangle created with %u elements.\n", mesh->nelems);
+    print_triangles(mesh);
     // Hilbert
     uint32_t* points_order = (uint32_t*)malloc(sizeof(uint32_t) * mesh->nnodes);
     uint64_t* hilbert_keys = (uint64_t*)malloc(sizeof(uint64_t) * mesh->nnodes);
     compute_hilbert_keys(mesh->nodes, mesh->nnodes, hilbert_keys, 32);
+    printf("Computed Hilbert keys for %u nodes.\n", mesh->nnodes);
     sort_points_by_hilbert(points_order, mesh->nnodes, hilbert_keys);
+    printf("Sorted points by Hilbert order.\n");
+    for (int i = 0; i < mesh->nnodes; i++) {
+        printf("Processing point %u (Hilbert order %u).\n", points_order[i], i);
+        print_triangles(mesh);
+        uint32_t p = points_order[i];
+        if (p == initial_vertices[0] || p == initial_vertices[1] || p == initial_vertices[2]) {
+            continue; // Skip the initial triangle vertices
+        }
+        uint32_t T0 = stochastic_visibility_walk(mesh, &mesh->nodes[2 * p], 0);
+        printf("Point %u: Visibility walk returned triangle %u.\n", p, T0);
+        if (T0 == VERTEX_INFINITY) {
+            printf("Error in student_triangulation.c/%s: Visibility walk failed for point %u.\n", __FUNCTION__, p);
+            continue;
+        }
+        uint32_t* cavity = (uint32_t*)malloc(sizeof(uint32_t) * mesh->nelems);
+        boundary_st boundary = {0};
+        boundary.edges = malloc((size_t)3 * mesh->nelems * sizeof(*boundary.edges));
+
+        // Une fois cavity et boundary.edges alloués, le BFS remplit boundary.nedges.
+        uint32_t cavity_count = grow_cavity_BFS(
+            mesh, &mesh->nodes[2 * p], T0, cavity, &boundary
+        );
+
+        // Maintenant, la taille est connue.
+        boundary.origin  = malloc(boundary.nedges * sizeof(*boundary.origin));
+        boundary.outside = malloc(boundary.nedges * sizeof(*boundary.outside));
+
+        // Après vérification des deux allocations :
+        retriangulating(mesh, p, cavity, &boundary, cavity_count);
+
+        free(boundary.outside);
+        free(boundary.origin);
+        free(boundary.edges);
+        free(cavity);
+    }
 
 
+    print_triangles(mesh);
 
     // Free
     free(points_order);

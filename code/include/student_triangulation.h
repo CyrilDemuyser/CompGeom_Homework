@@ -20,6 +20,9 @@ typedef struct {
     uint32_t * edges; // The boundary edges
     uint32_t nnodes; // number of nodes
     uint32_t nedges; // number of edges
+
+    uint32_t * origin;  // The origin vertex of each boundary edge
+    uint32_t * outside; // The vertex outside the boundary for each boundary edge
 } boundary_st;
 
 // Minimal mesh structure
@@ -30,6 +33,9 @@ typedef struct {
     uint32_t * elems;    // Triangles of the mesh
     uint32_t nnodes;     // number of nodes
     uint32_t nelems;     // number of elems
+
+    // Capacity in triangles
+    uint32_t elems_capacity;   // Capacity in triangles
 
     // Half-edges
     // elems[he] is the origin vertex; next is computed : 3*(he/3)+ (he+1)%3
