@@ -22,6 +22,7 @@ void create_initial_triangle(mesh_st* mesh, uint32_t* initial_vertices) {
 
     // Check if the points are collinear
     double orientation = orient2d(first_point, second_point, third_point);
+    int valid_triangle_flag = 0;
     if (orientation == 0) {
         // Points are collinear, need to find a non-collinear point
         for (int i = 3; i < mesh->nnodes; ++i) {
@@ -29,8 +30,13 @@ void create_initial_triangle(mesh_st* mesh, uint32_t* initial_vertices) {
             orientation = orient2d(first_point, second_point, third_point);
             if (orientation != 0) {
                 c = i;
+                valid_triangle_flag = 1;
                 break;
             }
+        }
+        if (valid_triangle_flag != 1){
+            mesh->nelems = 0;
+            return;
         }
     }
     if (orientation < 0) {
@@ -53,29 +59,31 @@ void create_initial_triangle(mesh_st* mesh, uint32_t* initial_vertices) {
     mesh->elems[3*1 + 0] = b;
     mesh->elems[3*1 + 1] = a;
     mesh->elems[3*1 + 2] = VERTEX_INFINITY; // Ghost vertex
+    mesh->nelems += 1;
     // 2
     mesh->elems[3*2 + 0] = c;
     mesh->elems[3*2 + 1] = b;
     mesh->elems[3*2 + 2] = VERTEX_INFINITY;
+    mesh->nelems += 1;
     // 3
     mesh->elems[3*3 + 0] = a;
     mesh->elems[3*3 + 1] = c;
     mesh->elems[3*3 + 2] = VERTEX_INFINITY;
-    mesh->nelems = 4;
+    mesh->nelems += 1;
 
     // Set up half-edges for the initial triangle and ghost triangles
     mesh->twin[0] = 3;
     mesh->twin[1] = 6;
     mesh->twin[2] = 9;
     mesh->twin[3] = 0;
-    mesh->twin[4] = 11; //Boundary edge, no twin
-    mesh->twin[5] = 7; //Boundary edge, no twin
+    mesh->twin[4] = -1; //Boundary edge, no twin
+    mesh->twin[5] = -1; //Boundary edge, no twin
     mesh->twin[6] = 1;
-    mesh->twin[7] = 5; //Boundary edge, no twin
-    mesh->twin[8] = 10; //Boundary edge, no twin
+    mesh->twin[7] = -1; //Boundary edge, no twin
+    mesh->twin[8] = -1; //Boundary edge, no twin
     mesh->twin[9] = 2;
-    mesh->twin[10] = 8; //Boundary edge, no twin
-    mesh->twin[11] = 4; //Boundary edge, no twin
+    mesh->twin[10] = -1; //Boundary edge, no twin
+    mesh->twin[11] = -1; //Boundary edge, no twin
 
     initial_vertices[0] = a;
     initial_vertices[1] = b;
@@ -134,7 +142,7 @@ uint32_t stochastic_visibility_walk(mesh_st* mesh, double* point, uint32_t previ
 uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* cavity, boundary_st* boundary ) {
     // BFS = Breadth-First Search
     uint32_t* in_cavity = calloc(mesh->nelems, sizeof(*in_cavity)); // c et pas m pour avoir des 0s
-    printf("Starting BFS cavity growth from triangle %u.\n", T0);
+    //printf("Starting BFS cavity growth from triangle %u.\n", T0);
 
 
     uint32_t head = 0;  // Prochain triangle à traiter
@@ -186,7 +194,7 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
         }
     }
 
-    printf("Cavity grown with %u triangles.\n", cavity_count);
+    //printf("Cavity grown with %u triangles.\n", cavity_count);
 
     // Extract the boundary edges
     // boundary <- all half-edges in cavity whose twin is outside cavity
@@ -209,7 +217,7 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
             }
         }
     }
-    printf("Boundary extracted with %u edges.\n", last_added_index + 1);
+    //printf("Boundary extracted with %u edges.\n", last_added_index + 1);
     // order boundary by following its connected edge loop
     uint32_t current = last_added_index;
     uint32_t boundary_count = 0;
@@ -245,14 +253,13 @@ int retriangulating(mesh_st* mesh, uint32_t p, uint32_t* cavity, boundary_st* bo
         boundary->outside[i] = mesh->twin[he];
     }
 
-    for (int i = 0; i < boundary->nedges; i++){
+    for (uint32_t i = 0; i < boundary->nedges; i++){
         uint32_t T;
         if (i < cavity_count){
             T = cavity[i];
         } else {
             T = old_nelems + (i - cavity_count);
         }
-        int he = boundary->edges[i];
         uint32_t a = boundary->origin[i];
         uint32_t b = boundary->origin[(i + 1) % boundary->nedges];
 
@@ -282,5 +289,18 @@ int retriangulating(mesh_st* mesh, uint32_t p, uint32_t* cavity, boundary_st* bo
     mesh->twin[prev_bp]  = first_pa;
     mesh->twin[first_pa] = prev_bp;
     mesh->nelems = new_nelems;
+    return 0;
+}
+
+
+int discard_ghost(mesh_st *mesh){
+    for (int64_t t = (int64_t)mesh->nelems - 1; t >= 0; --t) {
+        if (is_ghost_triangle(mesh, (uint32_t)t)) {
+            if (remove_triangle(mesh, (uint32_t)t) == -1) {
+                printf("Error in student_delaunay.c/%s.\n", __func__);
+                return -1;
+            }
+        }
+    }
     return 0;
 }

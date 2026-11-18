@@ -10,6 +10,8 @@
 // Documentation can be found in student_triangulation.h
 
 void mesh_triangulate(mesh_st * mesh) {
+    // init the predicate
+    exactinit();
     // Reuse existing memory if it exists, otherwise allocate and compute
     printf("Starting triangulation for %u nodes.\n", mesh->nnodes);
     
@@ -32,24 +34,28 @@ void mesh_triangulate(mesh_st * mesh) {
     // Create initial triangles
     uint32_t* initial_vertices = malloc(3 * sizeof(uint32_t));
     create_initial_triangle(mesh, initial_vertices);
-    printf("Initial triangle created with %u elements.\n", mesh->nelems);
-    print_triangles(mesh);
+    printf("After create initial triangle : nelems = %u\n", mesh->nelems);
+    if (mesh->nelems == 0){
+        return;
+    }
+    //printf("Initial triangle created with %u elements.\n", mesh->nelems);
+    //print_triangles(mesh);
     // Hilbert
     uint32_t* points_order = (uint32_t*)malloc(sizeof(uint32_t) * mesh->nnodes);
     uint64_t* hilbert_keys = (uint64_t*)malloc(sizeof(uint64_t) * mesh->nnodes);
     compute_hilbert_keys(mesh->nodes, mesh->nnodes, hilbert_keys, 32);
-    printf("Computed Hilbert keys for %u nodes.\n", mesh->nnodes);
+    //printf("Computed Hilbert keys for %u nodes.\n", mesh->nnodes);
     sort_points_by_hilbert(points_order, mesh->nnodes, hilbert_keys);
-    printf("Sorted points by Hilbert order.\n");
-    for (int i = 0; i < mesh->nnodes; i++) {
-        printf("Processing point %u (Hilbert order %u).\n", points_order[i], i);
-        print_triangles(mesh);
+    //printf("Sorted points by Hilbert order.\n");
+    for (uint32_t i = 0; i < mesh->nnodes; i++) {
+        //printf("Processing point %u (Hilbert order %u).\n", points_order[i], i);
+        //print_triangles(mesh);
         uint32_t p = points_order[i];
         if (p == initial_vertices[0] || p == initial_vertices[1] || p == initial_vertices[2]) {
             continue; // Skip the initial triangle vertices
         }
         uint32_t T0 = stochastic_visibility_walk(mesh, &mesh->nodes[2 * p], 0);
-        printf("Point %u: Visibility walk returned triangle %u.\n", p, T0);
+        //printf("Point %u: Visibility walk returned triangle %u.\n", p, T0);
         if (T0 == VERTEX_INFINITY) {
             printf("Error in student_triangulation.c/%s: Visibility walk failed for point %u.\n", __FUNCTION__, p);
             continue;
@@ -76,8 +82,21 @@ void mesh_triangulate(mesh_st * mesh) {
         free(cavity);
     }
 
+    //printf("MESH BEFORE DISCARDING\n");
+    //print_triangles(mesh);
 
+    discard_ghost(mesh);
+
+    printf("MESH AFTER DISCARDING\n");
     print_triangles(mesh);
+
+    int check_flag = check_empty_circles(mesh);
+    if (check_flag){
+        printf("C'est bon :)\n");
+    }
+    else{
+        printf("CE N'EST PAS UNE DELAUNAY 0.0\n");
+    }
 
     // Free
     free(points_order);

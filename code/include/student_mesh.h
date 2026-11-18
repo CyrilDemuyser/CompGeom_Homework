@@ -12,4 +12,8 @@ int mesh_allocate_twins(mesh_st* mesh, uint32_t min_nelems);
 
 void print_triangles(mesh_st* mesh);
 
+int remove_triangle(mesh_st* mesh, uint32_t T);
+
+int check_empty_circles(mesh_st *mesh);
+
 #endif /* STUDENT_MESH_H */
