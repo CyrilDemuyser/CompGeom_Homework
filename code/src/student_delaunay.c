@@ -76,14 +76,14 @@ void create_initial_triangle(mesh_st* mesh, uint32_t* initial_vertices) {
     mesh->twin[1] = 6;
     mesh->twin[2] = 9;
     mesh->twin[3] = 0;
-    mesh->twin[4] = -1; //Boundary edge, no twin
-    mesh->twin[5] = -1; //Boundary edge, no twin
+    mesh->twin[4] = 11; //Boundary edge 11
+    mesh->twin[5] = 7; //Boundary edge 7
     mesh->twin[6] = 1;
-    mesh->twin[7] = -1; //Boundary edge, no twin
-    mesh->twin[8] = -1; //Boundary edge, no twin
+    mesh->twin[7] = 5; //Boundary edge 5
+    mesh->twin[8] = 10; //Boundary edge 10
     mesh->twin[9] = 2;
-    mesh->twin[10] = -1; //Boundary edge, no twin
-    mesh->twin[11] = -1; //Boundary edge, no twin
+    mesh->twin[10] = 8; //Boundary edge 8
+    mesh->twin[11] = 4; //Boundary edge 4
 
     initial_vertices[0] = a;
     initial_vertices[1] = b;
@@ -131,7 +131,7 @@ uint32_t stochastic_visibility_walk(mesh_st* mesh, double* point, uint32_t previ
             return T;
         }
         failsafe_counter++;
-        if (failsafe_counter > 1000) {
+        if (failsafe_counter > 10000000) {
             printf("Error in student_delaunay/%s: Exceeded maximum iterations.\n", __func__);
             return -1;
         }
@@ -139,9 +139,8 @@ uint32_t stochastic_visibility_walk(mesh_st* mesh, double* point, uint32_t previ
 }
 
 // Task 1.5
-uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* cavity, boundary_st* boundary ) {
+uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* cavity, boundary_st* boundary, uint32_t* in_cavity) {
     // BFS = Breadth-First Search
-    uint32_t* in_cavity = calloc(mesh->nelems, sizeof(*in_cavity)); // c et pas m pour avoir des 0s
     //printf("Starting BFS cavity growth from triangle %u.\n", T0);
 
 
@@ -171,12 +170,9 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
 
             int belongs;
             if (v[2] == VERTEX_INFINITY) {
-                // Fantôme (a, b, ∞) : son arête finie est orientée vers l'extérieur
-                // au sens où un point extérieur visible est à gauche de a → b.
                 double side = orient2d(a, b, point);
                 belongs = side > 0.0;
                 if (side == 0.0) {
-                    // Point sur le segment [a,b] : il faut aussi scinder cette arête.
                     belongs = ((a[0] <= point[0] && point[0] <= b[0]) ||
                             (b[0] <= point[0] && point[0] <= a[0])) &&
                             ((a[1] <= point[1] && point[1] <= b[1]) ||
@@ -198,7 +194,7 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
 
     // Extract the boundary edges
     // boundary <- all half-edges in cavity whose twin is outside cavity
-    uint32_t *unordered_boundary_edges = calloc((size_t)3 * mesh->nelems, sizeof(*unordered_boundary_edges));
+    uint32_t found_boundary = 0;
     uint32_t last_added_index = 0;
     for (uint32_t i = 0; i < cavity_count; i++) {
         uint32_t T = cavity[i];
@@ -206,15 +202,18 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
             uint32_t he = T * 3 + j;
             int twin_index = mesh->twin[he];
             if (twin_index == -1) {
-                unordered_boundary_edges[he] = 1; // Mark as boundary edge
                 last_added_index = he;
+                found_boundary = 1;
                 continue;
             }
             uint32_t N = (uint32_t)(twin_index / 3);
             if (in_cavity[N] != 1) {
-                unordered_boundary_edges[he] = 1; // Mark as boundary edge
                 last_added_index = he;
+                found_boundary = 1;
             }
+        }
+        if (found_boundary) {
+            break; // Stop after finding the first boundary edge
         }
     }
     //printf("Boundary extracted with %u edges.\n", last_added_index + 1);
@@ -223,7 +222,10 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
     uint32_t boundary_count = 0;
 
     do {
+        boundary->origin[boundary_count] = mesh->elems[current];
+        boundary->outside[boundary_count] = mesh->twin[current];
         boundary->edges[boundary_count++] = current;
+        
 
         int next = get_he_next((int)current);
         while (mesh->twin[next] != -1 &&
@@ -235,23 +237,20 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
     } while (current != last_added_index);
 
     boundary->nedges = boundary_count;
-    free(unordered_boundary_edges);
-    free(in_cavity);
+
+    for (uint32_t j = 0; j < cavity_count; ++j) {
+        in_cavity[cavity[j]] = 0;
+    }
+
     return cavity_count;
 }
 
 
-int retriangulating(mesh_st* mesh, uint32_t p, uint32_t* cavity, boundary_st* boundary, int cavity_count) {
+int retriangulating(mesh_st* mesh, uint32_t p, uint32_t* cavity, boundary_st* boundary, uint32_t cavity_count) {
     uint32_t old_nelems = mesh->nelems;
     uint32_t new_nelems = old_nelems + boundary->nedges - cavity_count;
     int first_pa = -1;
     int prev_bp = -1;
-
-    for (uint32_t i = 0; i < boundary->nedges; ++i) {
-        uint32_t he = boundary->edges[i];
-        boundary->origin[i]  = mesh->elems[he];
-        boundary->outside[i] = mesh->twin[he];
-    }
 
     for (uint32_t i = 0; i < boundary->nedges; i++){
         uint32_t T;
@@ -295,6 +294,7 @@ int retriangulating(mesh_st* mesh, uint32_t p, uint32_t* cavity, boundary_st* bo
 
 int discard_ghost(mesh_st *mesh){
     for (int64_t t = (int64_t)mesh->nelems - 1; t >= 0; --t) {
+        //printf("Checking triangle %lld for ghost status.\n", t);
         if (is_ghost_triangle(mesh, (uint32_t)t)) {
             if (remove_triangle(mesh, (uint32_t)t) == -1) {
                 printf("Error in student_delaunay.c/%s.\n", __func__);

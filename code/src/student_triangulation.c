@@ -47,6 +47,14 @@ void mesh_triangulate(mesh_st * mesh) {
     //printf("Computed Hilbert keys for %u nodes.\n", mesh->nnodes);
     sort_points_by_hilbert(points_order, mesh->nnodes, hilbert_keys);
     //printf("Sorted points by Hilbert order.\n");
+    uint32_t T0 = 0; // Start with the first triangle (the initial triangle)
+    boundary_st boundary = {0};
+    uint32_t *cavity = malloc((size_t)triangle_capacity * sizeof(*cavity));
+    uint32_t *in_cavity = calloc(triangle_capacity, sizeof(*in_cavity));
+
+    boundary.edges   = malloc((size_t)half_edge_capacity * sizeof(*boundary.edges));
+    boundary.origin  = malloc((size_t)half_edge_capacity * sizeof(*boundary.origin));
+    boundary.outside = malloc((size_t)half_edge_capacity * sizeof(*boundary.outside));
     for (uint32_t i = 0; i < mesh->nnodes; i++) {
         //printf("Processing point %u (Hilbert order %u).\n", points_order[i], i);
         //print_triangles(mesh);
@@ -54,49 +62,49 @@ void mesh_triangulate(mesh_st * mesh) {
         if (p == initial_vertices[0] || p == initial_vertices[1] || p == initial_vertices[2]) {
             continue; // Skip the initial triangle vertices
         }
-        uint32_t T0 = stochastic_visibility_walk(mesh, &mesh->nodes[2 * p], 0);
+        uint32_t T_current = stochastic_visibility_walk(mesh, &mesh->nodes[2 * p], T0);
+        T0 = T_current;
         //printf("Point %u: Visibility walk returned triangle %u.\n", p, T0);
-        if (T0 == VERTEX_INFINITY) {
+        if (T_current == VERTEX_INFINITY) {
             printf("Error in student_triangulation.c/%s: Visibility walk failed for point %u.\n", __FUNCTION__, p);
             continue;
         }
-        uint32_t* cavity = (uint32_t*)malloc(sizeof(uint32_t) * mesh->nelems);
-        boundary_st boundary = {0};
-        boundary.edges = malloc((size_t)3 * mesh->nelems * sizeof(*boundary.edges));
 
         // Une fois cavity et boundary.edges alloués, le BFS remplit boundary.nedges.
         uint32_t cavity_count = grow_cavity_BFS(
-            mesh, &mesh->nodes[2 * p], T0, cavity, &boundary
+            mesh, &mesh->nodes[2 * p], T_current, cavity, &boundary, in_cavity
         );
-
-        // Maintenant, la taille est connue.
-        boundary.origin  = malloc(boundary.nedges * sizeof(*boundary.origin));
-        boundary.outside = malloc(boundary.nedges * sizeof(*boundary.outside));
 
         // Après vérification des deux allocations :
         retriangulating(mesh, p, cavity, &boundary, cavity_count);
 
-        free(boundary.outside);
-        free(boundary.origin);
-        free(boundary.edges);
-        free(cavity);
+        
     }
+    free(boundary.outside);
+    free(boundary.origin);
+    free(boundary.edges);
+    free(in_cavity);
+    free(cavity);
+    
 
     //printf("MESH BEFORE DISCARDING\n");
     //print_triangles(mesh);
 
+    
     discard_ghost(mesh);
 
-    printf("MESH AFTER DISCARDING\n");
-    print_triangles(mesh);
+    //printf("MESH AFTER DISCARDING\n");
+    //print_triangles(mesh);
 
+    /*
     int check_flag = check_empty_circles(mesh);
     if (check_flag){
-        printf("C'est bon :)\n");
+        //printf("C'est bon :)\n");
     }
     else{
         printf("CE N'EST PAS UNE DELAUNAY 0.0\n");
     }
+    */
 
     // Free
     free(points_order);

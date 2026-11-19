@@ -26,12 +26,10 @@ int mesh_allocate_twins(mesh_st* mesh, uint32_t min_nelems){
 
 int is_ghost_triangle(mesh_st* mesh, uint32_t elem_index) {
     if (elem_index >= mesh->nelems) {
-        return -1; // Invalid index
+        return 0; // Invalid index
     }
-    for (int i = 0; i < 3; i++) {
-        if (mesh->elems[3 * elem_index + i] == VERTEX_INFINITY) {
-            return 1; // It's a ghost triangle
-        }
+    if (mesh->elems[3 * elem_index + 2] == VERTEX_INFINITY) {
+        return 1; // It's a ghost triangle
     }
     return 0; // Not a ghost triangle
 }
@@ -67,12 +65,17 @@ int remove_triangle(mesh_st* mesh, uint32_t T){
         return 0;
     }
 
-    for (int i = 0; i < 3; i++){
-        mesh->elems[3*T + i] = mesh->elems[3*last + i];
-        int current_twin = mesh->elems[3*last + i];
-        mesh->elems[3*T + i] = current_twin;
-        if (current_twin != -1){
-            mesh->twin[current_twin] = 3*T + i;
+    for (int i = 0; i < 3; ++i) {
+        uint32_t old_he = 3 * last + i;
+        uint32_t new_he = 3 * T + i;
+
+        mesh->elems[new_he] = mesh->elems[old_he];
+
+        int current_twin = mesh->twin[old_he];
+        mesh->twin[new_he] = current_twin;
+
+        if (current_twin != -1) {
+            mesh->twin[current_twin] = (int)new_he;
         }
     }
     
@@ -84,40 +87,16 @@ int remove_triangle(mesh_st* mesh, uint32_t T){
 
 // Renvoie 1 si tous les triangles passent le test du cercle vide, 0 sinon.
 // FONCTION FULL CHATGPT !!
-int check_empty_circles(mesh_st *mesh){
+int check_empty_circles(mesh_st *mesh) {
     for (uint32_t t = 0; t < mesh->nelems; ++t) {
-        uint32_t a = mesh->elems[3 * t];
-        uint32_t b = mesh->elems[3 * t + 1];
-        uint32_t c = mesh->elems[3 * t + 2];
-
-        // Détecte aussi un ghost qui aurait survécu à discard_ghost.
-        if (a >= mesh->nnodes || b >= mesh->nnodes || c >= mesh->nnodes) {
-            printf("Triangle %u : indice de sommet invalide.\n", t);
-            return 0;
-        }
-
-        double *A = &mesh->nodes[2 * a];
-        double *B = &mesh->nodes[2 * b];
-        double *C = &mesh->nodes[2 * c];
-
-        // Ton maillage stocke les triangles finis dans le sens antihoraire.
-        if (orient2d(A, B, C) <= 0) {
-            printf("Triangle %u (%u, %u, %u) : plat ou mal oriente.\n",
-                   t, a, b, c);
-            return 0;
-        }
-
-        for (uint32_t p = 0; p < mesh->nnodes; ++p) {
-            if (p == a || p == b || p == c)
-                continue;
-
-            double *P = &mesh->nodes[2 * p];
-            if (incircle(A, B, C, P) > 0) {
-                printf("Violation de Delaunay : le point %u est dans "
-                       "le cercle du triangle %u (%u, %u, %u).\n",
-                       p, t, a, b, c);
-                return 0;
-            }
+        uint32_t *v = &mesh->elems[3*t];
+        double *A = &mesh->nodes[2*v[0]], *B = &mesh->nodes[2*v[1]], *C = &mesh->nodes[2*v[2]];
+        if (orient2d(A, B, C) <= 0) return 0;
+        for (int i = 0; i < 3; i++) {
+            int tw = mesh->twin[3*t + i];
+            if (tw == -1) continue;
+            uint32_t opp = mesh->elems[3*(tw/3) + (tw%3 + 2) % 3]; // sommet opposé
+            if (incircle(A, B, C, &mesh->nodes[2*opp]) > 0) return 0;
         }
     }
     return 1;
