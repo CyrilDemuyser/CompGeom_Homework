@@ -2,6 +2,8 @@
 #ifndef STUDENT_ALPHA_H
 #define STUDENT_ALPHA_H
 
+#include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 #include "predicates.h"
 #include "student_mesh.h"
@@ -39,6 +41,20 @@ void alpha_filter(
     // Filters the triangles of a Delaunay triangulation based on the alpha shape criterion.
     mesh_st *mesh,
     double alpha
+);
+
+typedef enum {
+    // Defines the method to compute the alpha value for filtering triangles.
+    ALPHA_AVERAGE,
+    ALPHA_MINIMUM,
+    ALPHA_MAXIMUM
+} alpha_method_t;
+
+
+int alpha_filter_local(
+    // Filters the triangles of a Delaunay triangulation based on the alpha shape criterion using a local method.
+    mesh_st *mesh,
+    alpha_method_t method
 );
 
 #endif /* STUDENT_ALPHA_H */
