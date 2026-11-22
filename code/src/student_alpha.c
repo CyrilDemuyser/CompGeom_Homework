@@ -1,4 +1,5 @@
 // section 1.7
+#include <stdlib.h>
 #include "student_alpha.h"
 
 static double distance(double const *A, double const *B){
@@ -27,4 +28,23 @@ double triangle_circumradius(mesh_st const *mesh, uint32_t t){
     }
 
     return (a * b * c) / (2.0 * twice_area);
+}
+
+void alpha_filter(mesh_st *mesh, double alpha){
+    // Filters the triangles of a Delaunay triangulation based on the alpha shape criterion.
+    uint8_t *to_delete = malloc(sizeof(uint8_t) * mesh->nelems);
+
+    for (uint32_t t = 0; t < mesh->nelems; ++t) {
+        double R = triangle_circumradius(mesh, t);
+
+        if (R > alpha) {
+            to_delete[t] = 1; // delete this triangle
+        }
+        else {
+            to_delete[t] = 0; // keep this triangle
+        }
+    }
+
+    mesh_delete_elements(mesh, to_delete);
+    free(to_delete); // no longer needed after deletion
 }

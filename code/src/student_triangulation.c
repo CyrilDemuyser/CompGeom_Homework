@@ -152,7 +152,14 @@ boundary_st mesh_get_boundary(mesh_st const * mesh) {
 }
 
 uint32_t mesh_delete_elements(mesh_st* mesh, uint8_t const * to_delete){
-    // Do the thing...
+    for (int64_t T = (int64_t)mesh->nelems - 1; T >= 0; --T) { // iterate backwards because remove_triangle() replaces a deleted triangle with the LAST triangle
+        if (to_delete[T]) { // if the triangle is marked for deletion
+            if (remove_triangle(mesh, (uint32_t)T) == -1) {
+                return mesh->nelems; // if an error occurs, return the current number of elements
+            }
+        }
+    }
+
     return mesh->nelems;
 }
 
