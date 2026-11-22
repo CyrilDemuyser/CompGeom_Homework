@@ -7,6 +7,7 @@
 #include <time.h>
 #include "student_triangulation.h"
 #include "project_display.h"
+#include "student_alpha.h"
 
 /* This is a program to help you visualize part 2 of the project 
  * (alpha-shape + mesh adaptation). Your need a functioning triangulation for this step.
@@ -204,11 +205,14 @@ int main(int argc, char** argv) {
 
         // ====================== Compute the alpha-shape =====================
         // Choose which elements are deleted (keep all by default)
+        /*
         uint8_t* to_delete_realloc = realloc(to_delete, sizeof(*to_delete)*mesh.nelems);
         to_delete = to_delete_realloc;
         memset(to_delete, 0, sizeof(*to_delete)*mesh.nelems);
-
+        
         mesh_delete_elements(&mesh, to_delete);
+        */
+        alpha_filter(&mesh, 0.05);
 
         if (show_deleted_elems) {
             scene_add_mesh(mesh.nodes, mesh.nnodes, mesh.elems, mesh.nelems, NULL, 0, 0);
