@@ -9,14 +9,38 @@
 
 // Documentation can be found in student_triangulation.h
 
+
+/*
+REASONMENT BEHIND THESE FUNCTIONS:
+Incremental Delaunay triangulation approach:
+→ each new point is inserted into an existing triangulation
+→ the affected region is retriangulated
+
+SEQUENCE OF OPERATIONS:
+1. Initialise the predicates            :   exactinit()  
+→ Prepare robust geometric tests such as orient2d and incircle.
+2. Allocate mesh memory                 :   mesh_allocate_triangles(), mesh_allocate_twins()
+→ Reserve space for triangles, half-edges and vertex connectivity.
+3. Create the initial triangulation     :   create_initial_triangle()
+→ Build one real triangle and its surrounding ghost triangles.
+4. Determine the insertion order        :   compute_hilbert_keys() → sort_points_by_hilbert()
+→ Order the points spatially to improve the efficiency of subsequent searches.
+5. Insert points one by one             :   stochastic_visibility_walk() → grow_cavity_BFS() → retriangulating()
+→ Locate each point, identify the triangles to remove, and create new triangles around it.
+6. Remove ghost triangles                :   discard_ghost()
+→ Keep the final triangulation of the actual input points.
+7. Optional: Check Delaunay condition    :   check_empty_circles()
+→ Ensure that the triangulation remains valid and efficient as points are added.
+*/
+
 void mesh_triangulate(mesh_st * mesh) {
     // init the predicate
     exactinit();
     // Reuse existing memory if it exists, otherwise allocate and compute
     printf("Starting triangulation for %u nodes.\n", mesh->nnodes);
     
-    uint32_t triangle_capacity = 2 * mesh->nnodes - 2;
-    uint32_t half_edge_capacity = 3 * triangle_capacity;
+    uint32_t triangle_capacity = 2 * mesh->nnodes - 2; // max number of triangles in a 2D triangulation with n vertices is 2n - 2
+    uint32_t half_edge_capacity = 3 * triangle_capacity; // each triangle has 3 half-edges
     
     if (mesh_allocate_triangles(mesh, half_edge_capacity) < 0 || mesh_allocate_twins(mesh, half_edge_capacity) < 0) {
         fprintf(stderr, "Allocation du maillage impossible.\n");
@@ -41,6 +65,13 @@ void mesh_triangulate(mesh_st * mesh) {
     //printf("Initial triangle created with %u elements.\n", mesh->nelems);
     //print_triangles(mesh);
     // Hilbert
+    /* FROM COURSE LESSONS NOTES:
+    •	2 points that are close in space, are not necessarily close in the the curve (might be far away along the “rope”, if we were to straighten it)
+    •	2 points that are close in the the curve, are close!
+    → USEFUL because the next point to insert is likely to be relatively close to the previously inserted point. 
+    → This can make the visibility walk faster, since it can start from the previous triangle 
+    rather than searching the entire mesh from scratch.
+    */
     uint32_t* points_order = (uint32_t*)malloc(sizeof(uint32_t) * mesh->nnodes);
     uint64_t* hilbert_keys = (uint64_t*)malloc(sizeof(uint64_t) * mesh->nnodes);
     compute_hilbert_keys(mesh->nodes, mesh->nnodes, hilbert_keys, 32);

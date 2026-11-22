@@ -31,7 +31,7 @@
 
 // Function that return the unsigned key associated to an element
 // On a deux tableaux : les clefs Hilbert et juste les points
-// Au début on a Hilber[0] = clef du point 0 -> points[0]
+// Au début on a Hilbert[0] = clef du point 0 -> points[0]
 // Mais comme on va trier les points, on va perdre l'association avec les clefs
 // Donc on va lire l'index du point et le passer dans Hilbert
 static uint64_t get_point_key(uint32_t* point_id_ptr, const void* user_data){
@@ -67,8 +67,10 @@ void compute_hilbert_keys(double* points, uint32_t npoints, uint64_t* hilbert_ke
         return;
     }
 
+    // Initially, the minimum and maximum coordinates are set to the coordinates of the first point.
     double x_min = points[0]; double x_max = points[0];
     double y_min = points[1]; double y_max = points[1];
+    // ...then we calculate the bounding box containing all the points
     for (uint32_t i = 0; i < npoints; i++){
         double x = points[2*i];
         double y = points[2*i + 1];
@@ -77,8 +79,9 @@ void compute_hilbert_keys(double* points, uint32_t npoints, uint64_t* hilbert_ke
         if (y < y_min) y_min = y;
         if (y > y_max) y_max = y;
     }
-    double x0 = (x_min + x_max) / 2.0;
-    double y0 = (y_min + y_max) / 2.0;
+    // the Hilbert curve is defined over a square, while our input points may occupy a rectangle or an irregularly shaped region
+    double x0 = (x_min + x_max) / 2.0; // the center of the bounding box (x)
+    double y0 = (y_min + y_max) / 2.0; // the center of the bounding box (y)
     double half_size = fmax(x_max - x_min, y_max - y_min) / 2.0;
 
     for (uint32_t i = 0; i < npoints; i++){
@@ -93,11 +96,11 @@ void compute_hilbert_keys(double* points, uint32_t npoints, uint64_t* hilbert_ke
         for (int j = 0; j < depth; ++j) {
             key = 4 * key + (uint64_t)bits[j];
         }
-        hilbert_keys[i] = key;
+        hilbert_keys[i] = key; // numerical representation of the point's position along the Hilbert curve
     }
 }
 
-// functions from the ZouL
+// FUNCTIONS FROM ZOULAB
 
 static void swap(double *a, double *b) {
   double temp = *a;
@@ -137,3 +140,8 @@ void hilbertCoordinates ( double x, double y,
     }
   }
 }
+
+/* IMPORTANT TO REMEMBER:
+Hilbert ordering is a nice optimisation tool, 
+not a requirement for Delaunay triangulation to be mathematically correct!
+*/ 
