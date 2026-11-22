@@ -6,6 +6,30 @@
 #include "student_mesh.h"
 #include "He_st.h"
 
+/* Reminder about TRIANGLES:
+
+mesh->elems[3 * T + i]  →  triangle T with vertex i
+
+triangle 0 → elems[0], elems[1], elems[2]
+triangle 1 → elems[3], elems[4], elems[5]
+triangle 2 → elems[6], elems[7], elems[8]
+
+twin[he]  →  tells which half edge belongs to the triangle on the other side of this (he) half edge
+Each triangle has 3 half edges  →  T = twin_index / 3;
+*/
+
+/* Reminder about PREDICATES:
+
+orient2d > 0     C is to the left
+orient2d < 0     C is to the right
+orient2d = 0     A, B, C are collinear
+
+incircle > 0     D is inside the circumcircle of A, B, C
+incircle < 0     D is outside the circumcircle of A, B, C
+incircle = 0     D is on the circumcircle of A, B, C
+*/
+
+
 void create_initial_triangle(mesh_st* mesh, uint32_t* initial_vertices) {
     // Check if at least 3 points in nodes
     if (mesh->nnodes < 3) {
@@ -16,7 +40,7 @@ void create_initial_triangle(mesh_st* mesh, uint32_t* initial_vertices) {
 
     // Pick three non-collinear points
     int a = 0, b = 1, c = 2;
-    double* first_point  = &mesh->nodes[2 * a];
+    double* first_point  = &mesh->nodes[2 * a]; // gives x coordinate (y would be 2*n + 1, the odd positions)
     double* second_point = &mesh->nodes[2 * b];
     double* third_point  = &mesh->nodes[2 * c];
 
@@ -25,8 +49,8 @@ void create_initial_triangle(mesh_st* mesh, uint32_t* initial_vertices) {
     int valid_triangle_flag = 0;
     if (orientation == 0) {
         // Points are collinear, need to find a non-collinear point
-        for (int i = 3; i < mesh->nnodes; ++i) {
-            third_point = &mesh->nodes[2 * i];
+        for (int i = 3; i < mesh->nnodes; ++i) { // checks all the other nodes until it finds a non collinear
+            third_point = &mesh->nodes[2 * i]; // x coordinate of the third point
             orientation = orient2d(first_point, second_point, third_point);
             if (orientation != 0) {
                 c = i;
@@ -108,7 +132,15 @@ uint32_t stochastic_visibility_walk(mesh_st* mesh, double* point, uint32_t previ
         }
         uint32_t edges[3] = {mesh->elems[3 * T + 0], mesh->elems[3 * T + 1], mesh->elems[3 * T + 2]};
         int edge_order[3] = {0, 1, 2};
-        for (int i = 2; i > 0; i--) {
+        for (int i = 2; i > 0; i--) {// shuffles the order randomly
+            /* FROM PROJECT STATEMENT:
+            Randomizing the order in which the 3 edges are tested at every step is not cosmetic: on a
+            triangulation that is not Delaunay (which can happen transiently, or if you experiment with
+            non-Delaunay meshes), a deterministic edge order can make the walk cycle forever. The
+            randomized version almost surely terminates. On a genuine Delaunay triangulation the walk
+            always terminates, deterministic or not — but get into the habit of randomizing, it costs
+            nothing and removes an entire class of bugs.
+            */
             int j = rand() % (i + 1);
             int temp = edge_order[i];
             edge_order[i] = edge_order[j];
@@ -139,6 +171,12 @@ uint32_t stochastic_visibility_walk(mesh_st* mesh, double* point, uint32_t previ
 }
 
 // Task 1.5
+/* FROM PROJECT STATEMENT:
+a triangle belongs to the cavity if and only if p lies strictly inside its circumcircle (the incircle predicate)
+
+→ Delaunay cavity = all triangles whose circumcircle contains P.
+*/
+
 uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* cavity, boundary_st* boundary, uint32_t* in_cavity) {
     // BFS = Breadth-First Search
     //printf("Starting BFS cavity growth from triangle %u.\n", T0);
@@ -150,10 +188,10 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
     cavity[cavity_count++] = T0;
     in_cavity[T0] = 1;
 
-    while (head < cavity_count) {
+    while (head < cavity_count) { // processes all triangles currently in the queue
         uint32_t T = cavity[head++]; // pop front
 
-        for (int i = 0; i < 3; i++){
+        for (int i = 0; i < 3; i++){ // for each triangle, we inspect its three neighbors
             uint32_t he = T * 3 + i;
             int twin_index = mesh->twin[he];
             if (twin_index == -1) {
@@ -161,17 +199,19 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
             }
 
             uint32_t N = (uint32_t)twin_index / 3;
+            // retrieve the neighboring triangle and skip it if it has already been included
             if (in_cavity[N])
                 continue;
 
             uint32_t *v = &mesh->elems[3 * N];
+            // each vertex index points to two consecutive entries in mesh->nodes
             double *a = &mesh->nodes[2 * (size_t)v[0]];
             double *b = &mesh->nodes[2 * (size_t)v[1]];
 
             int belongs;
             if (v[2] == VERTEX_INFINITY) {
-                double side = orient2d(a, b, point);
-                belongs = side > 0.0;
+                double side = orient2d(a, b, point); // checks whether the new point lies on the exterior side of the original real triangle's boundary
+                belongs = side > 0.0; 
                 if (side == 0.0) {
                     belongs = ((a[0] <= point[0] && point[0] <= b[0]) ||
                             (b[0] <= point[0] && point[0] <= a[0])) &&
@@ -183,8 +223,8 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
                 belongs = incircle(a, b, c, point) > 0.0;
             }
 
-            if (belongs) {
-                in_cavity[N] = 1;
+            if (belongs) { // the point is on the side represented by that ghost triangle...
+                in_cavity[N] = 1; //...so the ghost triangle is included in the cavity
                 cavity[cavity_count++] = N;
             }
         }
@@ -193,7 +233,7 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
     //printf("Cavity grown with %u triangles.\n", cavity_count);
 
     // Extract the boundary edges
-    // boundary <- all half-edges in cavity whose twin is outside cavity
+    // boundary ← all half-edges in cavity whose twin is outside cavity
     uint32_t found_boundary = 0;
     uint32_t last_added_index = 0;
     for (uint32_t i = 0; i < cavity_count; i++) {
@@ -201,19 +241,19 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
         for (int j = 0; j < 3; j++) {
             uint32_t he = T * 3 + j;
             int twin_index = mesh->twin[he];
-            if (twin_index == -1) {
+            if (twin_index == -1) { // it has no twin, so it is a boundary edge
                 last_added_index = he;
                 found_boundary = 1;
                 continue;
             }
             uint32_t N = (uint32_t)(twin_index / 3);
-            if (in_cavity[N] != 1) {
+            if (in_cavity[N] != 1) { // its twin belongs to a triangle outside the cavity, so it is a boundary edge
                 last_added_index = he;
                 found_boundary = 1;
             }
         }
         if (found_boundary) {
-            break; // Stop after finding the first boundary edge
+            break; // Stop after finding the first boundary edge → only needs one boundary edge to start following the entire loop
         }
     }
     //printf("Boundary extracted with %u edges.\n", last_added_index + 1);
@@ -223,15 +263,24 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
 
     do {
         boundary->origin[boundary_count] = mesh->elems[current];
-        boundary->outside[boundary_count] = mesh->twin[current];
+        boundary->outside[boundary_count] = mesh->twin[current]; 
+        /*
+        We store outside because, when we later create a new triangle, 
+        we need to reconnect its boundary edge to the triangle 
+        that was previously outside the cavity
+        */
         boundary->edges[boundary_count++] = current;
         
 
         int next = get_he_next((int)current);
+        /*
+        WARNING: get_he_next() moves to the next half-edge around the same triangle,
+        but that next half-edge might be internal to the cavity!
+        */ 
         while (mesh->twin[next] != -1 &&
             in_cavity[mesh->twin[next] / 3]) {
             next = get_he_next(mesh->twin[next]);
-        }
+        } // walking around the cavity while skipping all its internal edges
 
         current = (uint32_t)next;
     } while (current != last_added_index);
@@ -247,6 +296,7 @@ uint32_t grow_cavity_BFS(mesh_st* mesh, double* point, uint32_t T0, uint32_t* ca
 
 
 int retriangulating(mesh_st* mesh, uint32_t p, uint32_t* cavity, boundary_st* boundary, uint32_t cavity_count) {
+    // Remove the triangles belonging to the cavity and replace them with triangles connecting the new point P to the cavity boundary
     uint32_t old_nelems = mesh->nelems;
     uint32_t new_nelems = old_nelems + boundary->nedges - cavity_count;
     int first_pa = -1;
@@ -257,10 +307,11 @@ int retriangulating(mesh_st* mesh, uint32_t p, uint32_t* cavity, boundary_st* bo
         if (i < cavity_count){
             T = cavity[i];
         } else {
-            T = old_nelems + (i - cavity_count);
+            T = old_nelems + (i - cavity_count); // OPTIMIZATION: reusing the old triangle memory
         }
-        uint32_t a = boundary->origin[i];
-        uint32_t b = boundary->origin[(i + 1) % boundary->nedges];
+        uint32_t a = boundary->origin[i]; 
+        uint32_t b = boundary->origin[(i + 1) % boundary->nedges]; 
+        // we can retrieve 2 consecutive boundary vertices because the boundary is now ORDERED
 
         int base = (int)(3 * T);
         int he_ab = base;
@@ -273,7 +324,7 @@ int retriangulating(mesh_st* mesh, uint32_t p, uint32_t* cavity, boundary_st* bo
         mesh->elems[he_bp] = b;
         mesh->elems[he_pa] = p;
         
-        int out = boundary->outside[i];
+        int out = boundary->outside[i]; // contains the twin of the original cavity boundary edge
         mesh->twin[he_ab] = out;
         if (out != -1) mesh->twin[out] = he_ab;
 
@@ -293,6 +344,7 @@ int retriangulating(mesh_st* mesh, uint32_t p, uint32_t* cavity, boundary_st* bo
 
 
 int discard_ghost(mesh_st *mesh){
+    // the final triangulation should contain only real triangles (ghost triangles are a tool)
     for (int64_t t = (int64_t)mesh->nelems - 1; t >= 0; --t) {
         //printf("Checking triangle %lld for ghost status.\n", t);
         if (is_ghost_triangle(mesh, (uint32_t)t)) {
