@@ -345,7 +345,7 @@ int retriangulating(mesh_st* mesh, uint32_t p, uint32_t* cavity, boundary_st* bo
 
 int discard_ghost(mesh_st *mesh){
     // the final triangulation should contain only real triangles (ghost triangles are a tool)
-    for (int64_t t = (int64_t)mesh->nelems - 1; t >= 0; --t) {
+    for (int64_t t = (int64_t)mesh->nelems - 1; t >= 0; --t) { // iterate backwards to avoid issues with changing indices when removing triangles
         //printf("Checking triangle %lld for ghost status.\n", t);
         if (is_ghost_triangle(mesh, (uint32_t)t)) {
             if (remove_triangle(mesh, (uint32_t)t) == -1) {
